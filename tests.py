@@ -4,9 +4,13 @@
 """
 import DataDownloader
 
+# Test genStationsList
+
+DataDownloader.genStationsList('/home/nbrown/Desktop')
+
 # Test1: Check that the downloader works for a specific page.
 
-print DataDownloader.downloader(interval='hourly',station='MONTREAL INTL A',day='1',month='1',year='2016',verbose='off')
+print DataDownloader.downloader(interval='hourly',stationID='51157',day='1',month='1',year='2016',verbose='off')
 
 
 
