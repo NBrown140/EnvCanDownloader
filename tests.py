@@ -4,13 +4,19 @@
 """
 import DataDownloader
 
+# Test urlBuilder
+
+#Check for invalid dates
+#DataDownloader.urlBuilder(interval='hourly',stationID='???',day='1',month='1',year='2017',verbose='on')
+#DataDownloader.urlBuilder(interval='hourly',stationID='???',day='40',month='1',year='2017',verbose='on')
+
 # Test genStationsList
 
-DataDownloader.genStationsList('/home/nbrown/Desktop')
+DataDownloader.genStationsDict('/home/nbrown/Desktop')
 
 # Test1: Check that the downloader works for a specific page.
 
-print DataDownloader.downloader(interval='hourly',stationID='51157',day='1',month='1',year='2016',verbose='off')
+#print DataDownloader.downloader(wd='/home/nbrown/Desktop',interval='hourly',stationID='1706',day='14',month='7',year='2001',verbose='off')
 
 
 
