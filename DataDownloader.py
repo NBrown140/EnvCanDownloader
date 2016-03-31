@@ -6,6 +6,14 @@ ftp://client_climate@ftp.tor.ec.gc.ca/Pub/Get_More_Data_Plus_de_donnees/Station%
 import time, sys, os
 import urllib2
 
+def multipleDownloads(inputList):
+    """
+    inputList must have format:
+    [stationID_1, interval_1, 
+     stationID_2, interval_2, ]
+    """
+
+
 
 def downloader(wd,interval,stationID,day=1,month=1,year=2016,verbose='off'):
     """
@@ -16,24 +24,31 @@ def downloader(wd,interval,stationID,day=1,month=1,year=2016,verbose='off'):
     month (int):
     year (int):
     verbose (str):
+
+    If hourly data is desired, then year and month must be given, but not day.
+    If daily data is desired, then year must be given, but not month nor day.
+    If monthly data is desired, then neither day, month nor year are required.
     """
     day,month,year = str(day),str(month),str(year)
     os.chdir(wd)
-    print 'Working directory set to: '+wd
+    if verbose=='on': print 'Working directory set to: '+wd
 
     url = urlBuilder(interval,stationID,day,month,year,verbose)
 
     if interval=='hourly':
-        filename = station+'_hourly_'+year+'_'+month+'_'+day
+        filename = stationID+'_hourly_'+year+'_'+month+'_'+day
     elif interval=='daily':
-        filename = station+'_hourly_'+year+'_'+month
+        filename = stationID+'_hourly_'+year+'_'+month
     elif interval=='monthly':
-        filename = station+'_hourly_'+year
+        filename = stationID+'_hourly_'+year
 
+    if verbose=='on': print 'Downloading from '+url+' to '+filename+'.csv'
     f = urllib2.urlopen(url)
-    data = open(filename,"w")
+    data = open(filename+'.csv',"w")
     data.write(f.read())
     data.close()
+    if verbose=='on': print 'Done Downloading '+filename+'.csv'
+
 
 def urlBuilder(interval='hourly',stationID='???',day='1',month='1',year='2016',verbose='off'):
     """
@@ -53,7 +68,7 @@ def urlBuilder(interval='hourly',stationID='???',day='1',month='1',year='2016',v
         print "Invalid input to urlBuilder: interval"
         print my_func.__doc__
         return None
-    url = 'http://climate.weather.gc.ca/climateData/bulkdata_e.html?format=csv&stationID='+stationID+'&Year='+year+'&Month='+month+'&Day='+day+'&timeframe=+'+tf+'&submit= Download+Data'
+    url = 'http://climate.weather.gc.ca/climateData/bulkdata_e.html?format=csv&stationID='+stationID+'&Year='+year+'&Month='+month+'&Day='+day+'&timeframe='+tf+'&submit= Download+Data'
 
     if verbose=='on': print "Built URL: ",url,'\n'
         
@@ -113,117 +128,3 @@ def update_progress(progress):
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# def getHourly(stations,startDay,startMonth,startYear,endDay,endMonth,endYear):
-#     pass
-# def getDaily(stations,startMonth,startYear,endMonth,endYear):
-#     pass
-# def getMonthly(stations,startYear,endYear):
-#     pass
-
-
-# def downloader(interval='hourly',station='???',day='1',month='1',year='2016',verbose='off'):
-#     """
-
-#     """
-#     url = urlBuilder(interval,station,day,month,year,verbose)
-
-#     html = urllib2.urlopen(url).read()
-
-#     soup = BeautifulSoup(html)
-
-#     table = soup.find('table', attrs={'class':'wet-boew-zebra span-8 '})
-
-#     rows = table.findAll('tr')
-
-#     data = []
-#     for row in rows:
-#         cols = row.find_all('td')
-#         cols = [ele.text.strip() for ele in cols]
-#         data.append([ele for ele in cols])
-
-#     if verbose=='on':
-#         for i in data:
-#             print i
-#         print '\n'*3,'Removing top 2 empty lists (data[0] and data[1])...','\n'
-    
-#     data = data[2:]
-
-#     if verbose=='on':
-#         for i in data:
-#             print i
-
-#     return data
-
-# def urlBuilder(interval='hourly',station='???',day='1',month='1',year='2016',verbose='off'):
-#     """
-#     interval = 'hourly', 'daily' or 'monthly'
-#     station = 'MONTREAL INTL A', etc...
-#     day = '1'-'31'
-#     month = '1'-'12'
-#     year = '1840'-'2016'
-
-#     To Do:
-#     - Allow station to be input as name (str) or id (int).
-#     - 
-#     """
-
-#     if interval=='hourly':
-#         url = 'http://climate.weather.gc.ca/climateData/hourlydata_e.html?timeframe=1&Prov=QC&StationID='+stationsDict(station)[0]+'&hlyRange=2008-01-08|2016-02-10&Year='+year+'&Month='+month+'&Day='+day+'&cmdB1=Go#'
-#     elif interval=='daily':
-#         url = ''
-#     elif interval=='monthly':
-#         url = ''
-#     else:
-#         print "Invalid input to urlBuilder"
-#         print my_func.__doc__
-#         return None
-#     if verbose=='on':
-#         print "Built URL: ",url,'\n'
-#     return url
-
-
-# def stationsDict(stationName):
-#     """
-#     Input: Station Name (e.g. MONTREAL INTL A)................................................ str
-#     Output: list of info...................................................................... list
-
-#     Dictionnary format:
-#     '$name' : ['$StationID','$recordStart','$recordEnd','$province','$lat','$lon','$elevation','$Climate ID','$WMO ID','$TC ID']
-#     """
-
-#     stations = {'MONTREAL INTL A':['51157','13-02-2013','present','QUEBEC','45 28 14.000 N','73 44 27.000 W','36.00','7025251','71627','YUL'],\
-#     'MCTAVISH':['10761','']}
-#     # ....
-    
-#     return stations[stationName]
-
-# def genStationsDict():
-#     """
-
-#     """
