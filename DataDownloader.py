@@ -4,18 +4,104 @@ ftp://ftp.tor.ec.gc.ca/Pub/Get_More_Data_Plus_de_donnees/Readme.txt
 ftp://client_climate@ftp.tor.ec.gc.ca/Pub/Get_More_Data_Plus_de_donnees/Station%20Inventory%20EN.csv
 """
 import datetime, time, sys, os, csv
+from pprint import pprint
 import urllib2
 
-def multipleDownloads(inputList):
+
+def concatCsvFiles():
+    pass
+
+
+def findStations(stationsDict,name,interval,tp,Pr=None,lat=None,lon=None,elev=None,verbose='off'):
     """
-    inputList must have format:
-    [stationID_1, interval_1, 
-     stationID_2, interval_2, ]
+    Mandatory Filters:
+    Filter1: Name contains a string (e.g. 'MONTREAL' or 'TORONTO'). Enter '' for all.
+    Filter2: Interval ('hourly', 'daily' or 'monthly').
+    Filter3: Recorded time period tp (e.g. ['1950','2016'])
+
+    Optional Filters:
+    Filter4: In one or more provinces/territories.
+    Filter5: Within a lat/lon interval.
+    Filter6: Within an elevation interval.
+
+
+    And output a list: [['Name_1', 'StationID_1', 'interval_1', 'FirstYear_1', 'LastYear_1'],
+                        ['Name_2', 'StationID_2', 'interval_2', 'FirstYear_2', 'LastYear_2'], ...]
+
+    name will always be converted to all uppercase, because stations name in the dict are all uppercase.
+
+    To do:
+    - Add the code for Province, lat, lon and elevation constraints
     """
+    stations = []
+
+    if interval=='hourly':
+        interv1 = 12; interv2 = 13
+    elif interval=='daily':
+        interv1 = 14; interv2 = 15
+    elif interval=='monthly':
+        interv1 = 16; interv2 = 17
+    else:
+        raise ValueError('Invalid input to findStations: interval='+interval+'.\
+            \n'+findStations.__doc__)
+
+    if verbose=='on': print 'Finding stations containing '+name+' at interval '+interval+' within time period '+tp[0]+'-'+tp[1]+'...'
+    keys = stationsDict.keys()
+    for key in keys:
+        if (name.upper() in key) and stationsDict[key][interv1]<=tp[1] and stationsDict[key][interv2]>=tp[0]:
+            t1 = max(int(stationsDict[key][interv1]),int(tp[0])); t2 = min(int(stationsDict[key][interv2]),int(tp[1]))
+            temp = [key,stationsDict[key][2],interval,t1,t2]
+            stations.append(temp)
+
+    if verbose=='on': print 'Found '+str(len(stations))+' stations:'; pprint(stations)
+    return stations
 
 
+def genDownloadList(stations, verbose='off'):
+    """
+    Use a list of stations output by findStations and transform it into 
+    a downloadList that can be used by multipleDownloads.
+    """
+    downloadList = []
 
-def downloader(wd,interval,stationID,day=1,month=1,year=2016,verbose='off'):
+    for station in stations:
+        print station
+        if station[2]=='monthly':
+            downloadList.append([station[1],station[2],'1','1','1'])
+        elif station[2]=='daily':
+            for year in range(station[3],station[4]+1):
+                downloadList.append([station[1],station[2],'1','1',year])
+        elif station[2]=='hourly':
+            for year in range(station[3],station[4]+1):
+                for month in range(0,12+1):
+                    downloadList.append([station[1],station[2],'1',month,year])
+        else:
+            raise ValueError('Invalid input to genDownloadList: interval')
+    if verbose=='on': print 'Found '+str(len(downloadList))+' files to download:'; pprint(downloadList)
+
+    return downloadList
+
+
+def multipleDownloads(wd,downloadList,verbose='off'):
+    """
+    wd: working directory
+    downloadList: a list containing a list for each file to downloade
+    verbose: for debugging
+
+    downloadList must have format:
+    [['stationID_1', 'interval_1', 'day_1', 'month_1', 'year_1'],
+     ['stationID_2', 'interval_2', 'day_2', 'month_2', 'year_2'],
+     ['stationID_3', 'interval_3', 'day_3', 'month_3', 'year_3'], ...]
+    """
+    count=0.0
+    tot=len(downloadList)
+    for i in downloadList:
+        downloader(wd,i[0],i[1],i[2],i[3],i[4],verbose)
+        count=count+1.0
+        update_progress(count/tot)
+
+
+def downloader(wd,stationID,interval,day,month,year,verbose='off'):
     """
     wd (str): working directory where files will be downloaded........ e.g. '/home/usrname/weatherdata'
     interval (str): hourly, daily or monthly data..................... 'hourly' or 'daily' or 'monthly'
@@ -23,7 +109,7 @@ def downloader(wd,interval,stationID,day=1,month=1,year=2016,verbose='off'):
     day (int):
     month (int):
     year (int):
-    verbose (str):
+    verbose (str): for debugging
 
     If hourly data is desired, then year and month must be given, but not day.
     If daily data is desired, then year must be given, but not month nor day.
@@ -37,14 +123,14 @@ def downloader(wd,interval,stationID,day=1,month=1,year=2016,verbose='off'):
     os.chdir(wd)
     if verbose=='on': print 'Working directory set to: '+wd
 
-    url = urlBuilder(interval,stationID,day,month,year,verbose)
+    url = urlBuilder(stationID,interval,day,month,year,verbose)
 
     if interval=='hourly':
-        filename = stationID+'_hourly_'+year+'_'+month+'_'+day
-    elif interval=='daily':
         filename = stationID+'_hourly_'+year+'_'+month
+    elif interval=='daily':
+        filename = stationID+'_daily_'+year
     elif interval=='monthly':
-        filename = stationID+'_hourly_'+year
+        filename = stationID+'_monthly'
 
     if verbose=='on': print 'Downloading from '+url+' to '+filename+'.csv'
     f = urllib2.urlopen(url)
@@ -54,7 +140,7 @@ def downloader(wd,interval,stationID,day=1,month=1,year=2016,verbose='off'):
     if verbose=='on': print 'Done Downloading '+filename+'.csv'
 
 
-def urlBuilder(interval='hourly',stationID='???',day='1',month='1',year='2016',verbose='off'):
+def urlBuilder(stationID,interval,day,month,year,verbose='off'):
     """
     interval = 'hourly', 'daily' or 'monthly'
     stationID = '51157', etc.
@@ -81,22 +167,14 @@ def urlBuilder(interval='hourly',stationID='???',day='1',month='1',year='2016',v
     elif interval=='monthly':
         tf=str(3)
     else:
-        print "Invalid input to urlBuilder: interval"
-        print my_func.__doc__
-        return None
+        raise ValueError('Invalid input to urlBuilder: interval='+interval+'.\
+            \n'+urlBuilder.__doc__)
 
     url = 'http://climate.weather.gc.ca/climateData/bulkdata_e.html?format=csv&stationID='+stationID+'&Year='+year+'&Month='+month+'&Day='+day+'&timeframe='+tf+'&submit= Download+Data'
 
     if verbose=='on': print "Built URL: ",url,'\n'
         
     return url
-
-
-def setWorkingDir():
-    wd = input('Enter the working directory you wish to use. It will be used to download the list of stations (~2Mb) and output the downloaded files:')
-    os.chdir(wd)
-    print 'Working directory set to: '+wd
-    return None
 
 
 def genStationsDict(wd):
@@ -112,7 +190,6 @@ def genStationsDict(wd):
     To Do:
     - Add ability to gen dict without saving the file inventory file to disk.
     """
-
     os.chdir(wd)
     print 'Working directory set to: '+wd
 
@@ -150,7 +227,7 @@ def update_progress(progress):
     A value under 0 represents a 'halt'.
     A value at 1 or bigger represents 100%
     """
-    barLength = 10 # Modify this to change the length of the progress bar
+    barLength = 20 # Modify this to change the length of the progress bar
     status = ""
     if isinstance(progress, int):
         progress = float(progress)
@@ -167,7 +244,3 @@ def update_progress(progress):
     text = "\rPercent: [{0}] {1}% {2}".format( "#"*block + "-"*(barLength-block), progress*100, status)
     sys.stdout.write(text)
     sys.stdout.flush()
-
-
-
-
