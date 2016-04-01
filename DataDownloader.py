@@ -32,6 +32,7 @@ def findStations(stationsDict,name,interval,tp,Pr=None,lat=None,lon=None,elev=No
 
     To do:
     - Add the code for Province, lat, lon and elevation constraints
+    - Add ability to look if the particular station has a certain variable (e.g. wind speed, dew point).
     """
     stations = []
 
@@ -50,8 +51,7 @@ def findStations(stationsDict,name,interval,tp,Pr=None,lat=None,lon=None,elev=No
     for key in keys:
         if (name.upper() in key) and stationsDict[key][interv1]<=tp[1] and stationsDict[key][interv2]>=tp[0]:
             t1 = max(int(stationsDict[key][interv1]),int(tp[0])); t2 = min(int(stationsDict[key][interv2]),int(tp[1]))
-            temp = [key,stationsDict[key][2],interval,t1,t2]
-            stations.append(temp)
+            stations.append([key,stationsDict[key][2],interval,t1,t2])
 
     if verbose=='on': print 'Found '+str(len(stations))+' stations:'; pprint(stations)
     return stations
@@ -73,7 +73,7 @@ def genDownloadList(stations, verbose='off'):
                 downloadList.append([station[1],station[2],'1','1',year])
         elif station[2]=='hourly':
             for year in range(station[3],station[4]+1):
-                for month in range(0,12+1):
+                for month in range(1,12+1):
                     downloadList.append([station[1],station[2],'1',month,year])
         else:
             raise ValueError('Invalid input to genDownloadList: interval')
@@ -92,6 +92,9 @@ def multipleDownloads(wd,downloadList,verbose='off'):
     [['stationID_1', 'interval_1', 'day_1', 'month_1', 'year_1'],
      ['stationID_2', 'interval_2', 'day_2', 'month_2', 'year_2'],
      ['stationID_3', 'interval_3', 'day_3', 'month_3', 'year_3'], ...]
+
+     To do:
+     - Respect Env Can downloading guidelines. They might block downloads if there are too many.
     """
     count=0.0
     tot=len(downloadList)
