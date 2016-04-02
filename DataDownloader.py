@@ -34,6 +34,11 @@ def findStations(stationsDict,name,interval,tp,Pr=None,lat=None,lon=None,elev=No
     - Add the code for Province, lat, lon and elevation constraints
     - Add ability to look if the particular station has a certain variable (e.g. wind speed, dew point).
     """
+    if len(tp)==2:
+        tp[0],tp[1] = str(tp[0]),str(tp[1])
+    else:
+        raise ValueError('Error in parameter input to findStations. Parameter tp must be a list with only 2 values.')
+    
     stations = []
 
     if interval=='hourly':
@@ -53,8 +58,14 @@ def findStations(stationsDict,name,interval,tp,Pr=None,lat=None,lon=None,elev=No
             t1 = max(int(stationsDict[key][interv1]),int(tp[0])); t2 = min(int(stationsDict[key][interv2]),int(tp[1]))
             stations.append([key,stationsDict[key][2],interval,t1,t2])
 
-    if verbose=='on': print 'Found '+str(len(stations))+' stations:'; pprint(stations)
-    return stations
+    print 'Found '+str(len(stations))+' stations:'; pprint(stations)
+    ans = raw_input('Do you want to download data for all these stations? (y/n) \n')
+    if ans=='n':
+        sys.exit()
+    elif ans=='y':
+        return stations
+    else:
+        raise ValueError()
 
 
 def genDownloadList(stations, verbose='off'):
@@ -62,6 +73,8 @@ def genDownloadList(stations, verbose='off'):
     Use a list of stations output by findStations and transform it into 
     a downloadList that can be used by multipleDownloads.
     """
+    now = datetime.datetime.now(); m=now.month; y=now.year
+
     downloadList = []
 
     for station in stations:
@@ -74,7 +87,10 @@ def genDownloadList(stations, verbose='off'):
         elif station[2]=='hourly':
             for year in range(station[3],station[4]+1):
                 for month in range(1,12+1):
-                    downloadList.append([station[1],station[2],'1',month,year])
+                    if year==y and month>m:
+                        break
+                    else:
+                        downloadList.append([station[1],station[2],'1',month,year])
         else:
             raise ValueError('Invalid input to genDownloadList: interval')
     if verbose=='on': print 'Found '+str(len(downloadList))+' files to download:'; pprint(downloadList)
@@ -95,6 +111,7 @@ def multipleDownloads(wd,downloadList,verbose='off'):
 
      To do:
      - Respect Env Can downloading guidelines. They might block downloads if there are too many.
+     - Continuously print the cumulative downloaded size of files
     """
     count=0.0
     tot=len(downloadList)
