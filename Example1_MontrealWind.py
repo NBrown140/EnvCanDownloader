@@ -6,11 +6,9 @@ I will make wind speed histograms for each stations at different times.
 """
 
 import DataDownloader as dd
-import datetime
 import pandas as pd
 import matplotlib
 import matplotlib.pyplot as plt
-import numpy as np
 
 matplotlib.style.use('ggplot')
 
