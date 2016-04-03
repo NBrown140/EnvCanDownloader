@@ -23,6 +23,7 @@ def findStations(stationsDict,name,interval,tp,Pr=None,lat=None,lon=None,elev=No
     Filter4: In one or more provinces/territories.
     Filter5: Within a lat/lon interval.
     Filter6: Within an elevation interval.
+    Filter7: With a climateId or a WMO ID.
 
 
     And output a list: [['Name_1', 'StationID_1', 'interval_1', 'FirstYear_1', 'LastYear_1'],

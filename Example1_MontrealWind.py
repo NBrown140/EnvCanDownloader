@@ -6,6 +6,7 @@ I will make wind speed histograms for each stations at different times.
 """
 
 import DataDownloader as dd
+import datetime
 import pandas as pd
 import matplotlib
 import matplotlib.pyplot as plt
@@ -43,16 +44,14 @@ for year in years:
         path ='/Users/Nicolas/Desktop/test/51157_hourly_%s_%s.csv' % (year,month)
         print path
         frame = pd.read_csv(path, header=14, parse_dates=['Date/Time'], index_col=['Date/Time'])
-        names = names.append(frame, ignore_index=True)
+        names = names.append(frame)
 
 print names.head()
 
 
-ts = pd.DataFrame(names['Wind Spd (km/h)'])
-ts.plot(kind='line', linewidth=1.0, figsize=(11,7), xlim=[2000,2500])
-
-# ts = pd.Series(np.random.randn(1000))
-# ts = ts.cumsum()
-# ts.plot()
+ts = pd.Series(names['Wind Spd (km/h)'])
+ax = ts.plot(color='#3366ff', kind='line', linewidth=1.0, figsize=(11,7))
+ts.rolling(window=48).mean().plot(color='0.35')
+ax.set_xlim(pd.Timestamp('2014-01-01'), pd.Timestamp('2015-01-01'))
 plt.show()
 
