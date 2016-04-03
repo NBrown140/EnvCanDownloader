@@ -113,12 +113,16 @@ def multipleDownloads(wd,downloadList,verbose='off'):
      - Respect Env Can downloading guidelines. They might block downloads if there are too many.
      - Continuously print the cumulative downloaded size of files
     """
+    size=0.0
     count=0.0
     tot=len(downloadList)
     for i in downloadList:
-        downloader(wd,i[0],i[1],i[2],i[3],i[4],verbose)
+        filename = downloader(wd,i[0],i[1],i[2],i[3],i[4],verbose)
         count=count+1.0
         update_progress(count/tot)
+        size=size+os.path.getsize(wd+'/'+filename+'.csv')
+        sys.stdout.write(str(size/1E6)+' MB')
+        sys.stdout.flush()
 
 
 def downloader(wd,stationID,interval,day,month,year,verbose='off'):
@@ -159,7 +163,9 @@ def downloader(wd,stationID,interval,day,month,year,verbose='off'):
     data.close()
     if verbose=='on': print 'Done Downloading '+filename+'.csv'
 
-
+    return filename
+    
+    
 def urlBuilder(stationID,interval,day,month,year,verbose='off'):
     """
     interval = 'hourly', 'daily' or 'monthly'
