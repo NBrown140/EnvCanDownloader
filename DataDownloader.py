@@ -8,9 +8,6 @@ from pprint import pprint
 import urllib2
 
 
-def concatCsvFiles():
-    pass
-
 
 def findStations(stationsDict,name,interval,tp,Pr=None,lat=None,lon=None,elev=None,verbose='off'):
     """

@@ -5,6 +5,7 @@ Here, I will download hourly wind speed data for all stations that contain the w
 I will make wind speed histograms for each stations at different times.
 """
 
+import datetime
 import DataDownloader as dd
 import pandas as pd
 import matplotlib
@@ -32,7 +33,7 @@ matplotlib.style.use('ggplot')
 
 
 
-
+# Merge csv files into one pandas dataframe
 years = range(2013, 2015+1)
 months = range(1,12+1)
 
@@ -47,9 +48,28 @@ for year in years:
 print names.head()
 
 
+# Plot timeseries
+fig1 = plt.figure()
 ts = pd.Series(names['Wind Spd (km/h)'])
 ax = ts.plot(color='#3366ff', kind='line', linewidth=1.0, figsize=(11,7))
 ts.rolling(window=48).mean().plot(color='0.35')
 ax.set_xlim(pd.Timestamp('2014-01-01'), pd.Timestamp('2015-01-01'))
-plt.show()
+fig1.show()
+
+
+# Plot histogram
+d1=datetime.datetime(year=2014,month=1,day=1); d2=datetime.datetime(year=2014,month=4,day=1)
+d3=datetime.datetime(year=2014,month=6,day=1); d4=datetime.datetime(year=2014,month=9,day=1)
+s1 = pd.Series(names['Wind Spd (km/h)'][d1:d2], name='jfm')
+s2 = pd.Series(names['Wind Spd (km/h)'][d3:d4], name='jja')
+fig2 = plt.figure()
+bins = range(0,61,2)
+ax1 = s1.plot.hist(alpha=0.6, bins=bins, normed=True, figsize=(11,7), legend=True)
+ax2 = s2.plot.hist(alpha=0.6, bins=bins, normed=True, figsize=(11,7), legend=True)
+
+fig2.show()
+
+
+# Plot fourier 
+
 
