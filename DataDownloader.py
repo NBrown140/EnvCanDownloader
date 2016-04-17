@@ -2,14 +2,41 @@
 
 ftp://ftp.tor.ec.gc.ca/Pub/Get_More_Data_Plus_de_donnees/Readme.txt
 ftp://client_climate@ftp.tor.ec.gc.ca/Pub/Get_More_Data_Plus_de_donnees/Station%20Inventory%20EN.csv
+
+To do:
+- Make better use of python OOP. e.g. Make a new class (object) for a list of files to download and
+  call a method on it to download or filter.
 """
 import datetime, time, sys, os, csv
 from pprint import pprint
 import urllib2
 
 
+def checkVar(varNames,stationID,interval,year,verbose='off'):
+    """
+    Returns True if all strings in the list varNames appears anywhere in the file to download.
+    """
+    varsPresent = False
+    if type(varNames)!=list:
+        raise ValueError('Error in parameter input to varNames(). Parameter varNames must be a list.')
+    year = str(year)
 
-def findStations(stationsDict,name,interval,tp,Pr=None,lat=None,lon=None,elev=None,verbose='off'):
+    url = urlBuilder(stationID,interval,1,1,year,verbose)
+
+    f = urllib2.urlopen(url)
+    temp1 = True
+    for varName in varNames:
+        temp2 = False
+        for line in f:
+            if varName in line:
+                temp2 = True
+        temp1 = temp1 and temp2
+    varsPresent = temp1
+
+    return varsPresent
+
+
+def findStations(stationsDict,name,interval,tp,varNames=[],Pr=None,lat=None,lon=None,elev=None,verbose='off'):
     """
     Mandatory Filters:
     Filter1: Name contains a string (e.g. 'MONTREAL' or 'TORONTO'). Enter '' for all.
@@ -17,10 +44,11 @@ def findStations(stationsDict,name,interval,tp,Pr=None,lat=None,lon=None,elev=No
     Filter3: Recorded time period tp (e.g. ['1950','2016'])
 
     Optional Filters:
-    Filter4: In one or more provinces/territories.
-    Filter5: Within a lat/lon interval.
-    Filter6: Within an elevation interval.
-    Filter7: With a climateId or a WMO ID.
+    Filter4: Desired variable name (e.g. Wind Spd (km/h)). Leave as empty list if all variables are desired.
+    Filter5: In one or more provinces/territories.
+    Filter6: Within a lat/lon interval.
+    Filter7: Within an elevation interval.
+    Filter8: With a climateId or a WMO ID.
 
 
     And output a list: [['Name_1', 'StationID_1', 'interval_1', 'FirstYear_1', 'LastYear_1'],
@@ -30,12 +58,12 @@ def findStations(stationsDict,name,interval,tp,Pr=None,lat=None,lon=None,elev=No
 
     To do:
     - Add the code for Province, lat, lon and elevation constraints
-    - Add ability to look if the particular station has a certain variable (e.g. wind speed, dew point).
+    - Parallelize
     """
     if len(tp)==2:
         tp[0],tp[1] = str(tp[0]),str(tp[1])
     else:
-        raise ValueError('Error in parameter input to findStations. Parameter tp must be a list with only 2 values.')
+        raise ValueError('Error in parameter input to findStations(). Parameter tp must be a list with only 2 values.')
     
     stations = []
 
@@ -49,15 +77,21 @@ def findStations(stationsDict,name,interval,tp,Pr=None,lat=None,lon=None,elev=No
         raise ValueError('Invalid input to findStations: interval='+interval+'.\
             \n'+findStations.__doc__)
 
-    if verbose=='on': print 'Finding stations containing '+name+' at interval '+interval+' within time period '+tp[0]+'-'+tp[1]+'...'
+    if verbose=='on': print 'Finding stations containing "'+name+'" at interval "'+interval+'"" within time period '+\
+    tp[0]+'-'+tp[1]+' containing variable(s) '+str(varNames)
+
     keys = stationsDict.keys()
+    count = 0.
     for key in keys:
+        update_progress(count/len(keys))
         if (name.upper() in key) and stationsDict[key][interv1]<=tp[1] and stationsDict[key][interv2]>=tp[0]:
             t1 = max(int(stationsDict[key][interv1]),int(tp[0])); t2 = min(int(stationsDict[key][interv2]),int(tp[1]))
-            stations.append([key,stationsDict[key][2],interval,t1,t2])
+            if varNames==[] or checkVar(varNames,stationsDict[key][2],interval,t1)==True:
+                stations.append([key,stationsDict[key][2],interval,t1,t2])
+        count = count + 1
 
-    print 'Found '+str(len(stations))+' stations:'; pprint(stations)
-    ans = raw_input('Do you want to download data for all these stations? (y/n) \n')
+    print 'Found '+str(len(stations))+' station(s):'; pprint(stations)
+    ans = raw_input('Do you want to download data for all '+str(len(stations))+' stations? (y/n) \n')
     if ans=='n':
         sys.exit()
     elif ans=='y':
@@ -78,17 +112,17 @@ def genDownloadList(stations, verbose='off'):
     for station in stations:
         print station
         if station[2]=='monthly':
-            downloadList.append([station[1],station[2],'1','1','1'])
+            downloadList.append([station[0],station[1],station[2],'1','1','1'])
         elif station[2]=='daily':
             for year in range(station[3],station[4]+1):
-                downloadList.append([station[1],station[2],'1','1',year])
+                downloadList.append([station[0],station[1],station[2],'1','1',year])
         elif station[2]=='hourly':
             for year in range(station[3],station[4]+1):
                 for month in range(1,12+1):
                     if year==y and month>m:
                         break
                     else:
-                        downloadList.append([station[1],station[2],'1',month,year])
+                        downloadList.append([station[0],station[1],station[2],'1',month,year])
         else:
             raise ValueError('Invalid input to genDownloadList: interval')
     if verbose=='on': print 'Found '+str(len(downloadList))+' files to download:'; pprint(downloadList)
@@ -103,27 +137,28 @@ def multipleDownloads(wd,downloadList,verbose='off'):
     verbose: for debugging
 
     downloadList must have format:
-    [['stationID_1', 'interval_1', 'day_1', 'month_1', 'year_1'],
-     ['stationID_2', 'interval_2', 'day_2', 'month_2', 'year_2'],
-     ['stationID_3', 'interval_3', 'day_3', 'month_3', 'year_3'], ...]
+    [['stationName_1', 'stationID_1', 'interval_1', 'day_1', 'month_1', 'year_1'],
+     ['stationName_2', 'stationID_2', 'interval_2', 'day_2', 'month_2', 'year_2'],
+     ['stationName_3', 'stationID_3', 'interval_3', 'day_3', 'month_3', 'year_3'], ...]
 
      To do:
      - Respect Env Can downloading guidelines. They might block downloads if there are too many.
-     - Continuously print the cumulative downloaded size of files
     """
     size=0.0
     count=0.0
     tot=len(downloadList)
     for i in downloadList:
-        filename = downloader(wd,i[0],i[1],i[2],i[3],i[4],verbose)
+        if not os.path.exists(wd+'/'+i[0]):
+            os.makedirs(wd+'/'+i[0])
+        filename = downloader(wd+'/'+i[0],i[0],i[1],i[2],i[3],i[4],i[5],verbose)
         count=count+1.0
         update_progress(count/tot)
-        size=size+os.path.getsize(wd+'/'+filename+'.csv')
-        sys.stdout.write(str(size/1E6)+' MB')
+        size=size+os.path.getsize(wd+'/'+i[0]+'/'+filename+'.csv')
+        sys.stdout.write(str(round(size,3)/1E6)+' MB')
         sys.stdout.flush()
 
 
-def downloader(wd,stationID,interval,day,month,year,verbose='off'):
+def downloader(wd,stationName,stationID,interval,day,month,year,verbose='off'):
     """
     wd (str): working directory where files will be downloaded........ e.g. '/home/usrname/weatherdata'
     interval (str): hourly, daily or monthly data..................... 'hourly' or 'daily' or 'monthly'
@@ -148,11 +183,11 @@ def downloader(wd,stationID,interval,day,month,year,verbose='off'):
     url = urlBuilder(stationID,interval,day,month,year,verbose)
 
     if interval=='hourly':
-        filename = stationID+'_hourly_'+year+'_'+month
+        filename = stationName+'_'+stationID+'_hourly_'+year+'_'+month
     elif interval=='daily':
-        filename = stationID+'_daily_'+year
+        filename = stationName+'_'+stationID+'_daily_'+year
     elif interval=='monthly':
-        filename = stationID+'_monthly'
+        filename = stationName+'_'+stationID+'_monthly'
 
     if verbose=='on': print 'Downloading from '+url+' to '+filename+'.csv'
     f = urllib2.urlopen(url)
@@ -212,7 +247,7 @@ def genStationsDict(wd):
     'DLY First Year', 'DLY Last Year', 'MLY First Year', 'MLY Last Year']}
 
     To Do:
-    - Add ability to gen dict without saving the file inventory file to disk.
+    - Add ability to gen dict without saving the inventory file to disk.
     """
     os.chdir(wd)
     print 'Working directory set to: '+wd
@@ -265,6 +300,6 @@ def update_progress(progress):
         progress = 1
         status = "Done...\r\n"
     block = int(round(barLength*progress))
-    text = "\rPercent: [{0}] {1}% {2}".format( "#"*block + "-"*(barLength-block), progress*100, status)
+    text = "\rPercent: [{0}] {1}% {2}".format( "#"*block + "-"*(barLength-block), round(progress,5)*100, status)
     sys.stdout.write(text)
     sys.stdout.flush()
