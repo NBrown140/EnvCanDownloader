@@ -78,7 +78,7 @@ def findStations(stationsDict,name,interval,tp,varNames=[],Pr=None,lat=None,lon=
         raise ValueError('Invalid input to findStations: interval='+interval+'.\
             \n'+findStations.__doc__)
 
-    if verbose=='on': print 'Finding stations containing "'+name+'" at interval "'+interval+'"" within time period '+\
+    if verbose=='on': print 'Finding stations containing "'+name+'" at interval "'+interval+'" within time period '+\
     tp[0]+'-'+tp[1]+' containing variable(s) '+str(varNames)
 
     keys = stationsDict.keys()
@@ -155,13 +155,14 @@ def multipleDownloads(wd,downloadList,skipExist=True,verbose='off'):
     for i in downloadList:
         if not os.path.exists(wd+'/'+i[0]):
             os.makedirs(wd+'/'+i[0])
+        filename = mkFilename(i[2],i[0],i[1],i[5],i[4])
         if skipExist:
             if os.path.exists(wd+'/'+i[0]+'/'+filename+'.csv'):
                 pass
             else:
-                filename = downloader(wd+'/'+i[0],i[0],i[1],i[2],i[3],i[4],i[5],verbose)
+                downloader(wd+'/'+i[0],i[0],i[1],i[2],i[3],i[4],i[5],verbose)
         else:
-            filename = downloader(wd+'/'+i[0],i[0],i[1],i[2],i[3],i[4],i[5],verbose)
+            downloader(wd+'/'+i[0],i[0],i[1],i[2],i[3],i[4],i[5],verbose)
         count=count+1.0
         update_progress(count/tot)
         size=size+os.path.getsize(wd+'/'+i[0]+'/'+filename+'.csv')
@@ -193,12 +194,7 @@ def downloader(wd,stationName,stationID,interval,day,month,year,verbose='off'):
 
     url = urlBuilder(stationID,interval,day,month,year,verbose)
 
-    if interval=='hourly':
-        filename = stationName+'_'+stationID+'_hourly_'+year+'_'+month
-    elif interval=='daily':
-        filename = stationName+'_'+stationID+'_daily_'+year
-    elif interval=='monthly':
-        filename = stationName+'_'+stationID+'_monthly'
+    filename = mkFilename(interval,stationName,stationID,year,month)
 
     if verbose=='on': print 'Downloading from '+url+' to '+filename+'.csv'
     f = urllib2.urlopen(url)
@@ -209,7 +205,16 @@ def downloader(wd,stationName,stationID,interval,day,month,year,verbose='off'):
 
     return filename
     
-    
+def mkFilename(interval, stationName, stationID, year, month):
+    if interval=='hourly':
+        filename = stationName+'_'+stationID+'_hourly_'+year+'_'+month
+    elif interval=='daily':
+        filename = stationName+'_'+stationID+'_daily_'+year
+    elif interval=='monthly':
+        filename = stationName+'_'+stationID+'_monthly'
+    return filename
+
+
 def urlBuilder(stationID,interval,day,month,year,verbose='off'):
     """
     interval = 'hourly', 'daily' or 'monthly'
