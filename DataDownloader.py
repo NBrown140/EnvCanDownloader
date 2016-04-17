@@ -30,6 +30,7 @@ def checkVar(varNames,stationID,interval,year,verbose='off'):
         for line in f:
             if varName in line:
                 temp2 = True
+                break
         temp1 = temp1 and temp2
     varsPresent = temp1
 
@@ -58,7 +59,7 @@ def findStations(stationsDict,name,interval,tp,varNames=[],Pr=None,lat=None,lon=
 
     To do:
     - Add the code for Province, lat, lon and elevation constraints
-    - Parallelize
+    - Optimize for speed, then numba, then parallelize.
     """
     if len(tp)==2:
         tp[0],tp[1] = str(tp[0]),str(tp[1])
