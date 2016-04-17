@@ -131,10 +131,11 @@ def genDownloadList(stations, verbose='off'):
     return downloadList
 
 
-def multipleDownloads(wd,downloadList,verbose='off'):
+def multipleDownloads(wd,downloadList,skipExist=True,verbose='off'):
     """
     wd: working directory
     downloadList: a list containing a list for each file to downloade
+    skipExist: boolean representing whether to skip existing files when downloading to save time.
     verbose: for debugging
 
     downloadList must have format:
@@ -151,7 +152,13 @@ def multipleDownloads(wd,downloadList,verbose='off'):
     for i in downloadList:
         if not os.path.exists(wd+'/'+i[0]):
             os.makedirs(wd+'/'+i[0])
-        filename = downloader(wd+'/'+i[0],i[0],i[1],i[2],i[3],i[4],i[5],verbose)
+        if skipExist:
+            if os.path.exists(wd+'/'+i[0]+'/'+filename+'.csv'):
+                pass
+            else:
+                filename = downloader(wd+'/'+i[0],i[0],i[1],i[2],i[3],i[4],i[5],verbose)
+        else:
+            filename = downloader(wd+'/'+i[0],i[0],i[1],i[2],i[3],i[4],i[5],verbose)
         count=count+1.0
         update_progress(count/tot)
         size=size+os.path.getsize(wd+'/'+i[0]+'/'+filename+'.csv')
