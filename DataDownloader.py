@@ -35,7 +35,7 @@ def checkVar(varNames,stationID,interval,year,verbose='off'):
     varsPresent = temp1
 
     return varsPresent
-
+ 
 
 def findStations(stationsDict,name,interval,tp,varNames=[],Pr=None,lat=None,lon=None,elev=None,verbose='off'):
     """
@@ -87,8 +87,11 @@ def findStations(stationsDict,name,interval,tp,varNames=[],Pr=None,lat=None,lon=
         update_progress(count/len(keys))
         if (name.upper() in key) and stationsDict[key][interv1]<=tp[1] and stationsDict[key][interv2]>=tp[0]:
             t1 = max(int(stationsDict[key][interv1]),int(tp[0])); t2 = min(int(stationsDict[key][interv2]),int(tp[1]))
-            if varNames==[] or checkVar(varNames,stationsDict[key][2],interval,t1)==True:
+            if varNames==[]:
                 stations.append([key,stationsDict[key][2],interval,t1,t2])
+            elif checkVar(varNames,stationsDict[key][2],interval,t1)==True:
+                stations.append([key,stationsDict[key][2],interval,t1,t2])
+            else: print 'ERROR. This line should never be printed!'
         count = count + 1
 
     print 'Found '+str(len(stations))+' station(s):'; pprint(stations)
