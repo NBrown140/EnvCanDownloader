@@ -206,6 +206,7 @@ def downloader(wd,stationName,stationID,interval,day,month,year,verbose='off'):
     return filename
     
 def mkFilename(interval, stationName, stationID, year, month):
+    interval,stationName,stationID,year,month = str(interval),str(stationName),str(stationID),str(year),str(month)
     if interval=='hourly':
         filename = stationName+'_'+stationID+'_hourly_'+year+'_'+month
     elif interval=='daily':
