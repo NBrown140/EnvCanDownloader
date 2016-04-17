@@ -15,24 +15,24 @@ import numpy as np
 matplotlib.style.use('ggplot')
 
 # ############################ Downloading the data ###############################
-# # Set working directory
-# wd = raw_input('Enter desired working directory: \n')
+# Set working directory
+wd = raw_input('Enter desired working directory: \n')
 
-# # Download/update the daily-updated inventory of all stations from 
-# # ftp://client_climate@ftp.tor.ec.gc.ca/Pub/Get_More_Data_Plus_de_donnees/Station%20Inventory%20EN.csv
-# stationsDict = dd.genStationsDict(wd)
+# Download/update the daily-updated inventory of all stations from 
+# ftp://client_climate@ftp.tor.ec.gc.ca/Pub/Get_More_Data_Plus_de_donnees/Station%20Inventory%20EN.csv
+stationsDict = dd.genStationsDict(wd)
 
-# # Find all stations that contain 'montreal' in their name, have hourly data and have data somewhere
-# # between 1970 and 2016.
-# stations = dd.findStations(stationsDict,name='montreal int',interval='hourly',tp=['1970','2016'],verbose='on')
+# Find all stations that contain 'montreal' in their name, have hourly data and have data somewhere
+# between 1970 and 2016.
+stations = dd.findStations(stationsDict,name='',interval='hourly',tp=['1970','2016'],varNames=['Wind Spd (km/h)'],verbose='on')
 
-# # Download all desired files
-# dd.multipleDownloads(wd,dd.genDownloadList(stations))
+# Download all desired files
+dd.multipleDownloads(wd,dd.genDownloadList(stations))
 
 
 ############################### Using the data ##################################
 
-wd = '/home/nbrown/Desktop/test'
+wd = '/home/nbrown/Desktop/test/MONTREAL INTL A'
 #wd = '/Users/Nicolas/Desktop/test'
 
 # Merge csv files into one pandas dataframe
@@ -42,7 +42,7 @@ months = range(1,12+1)
 names = pd.DataFrame()
 for year in years:
     for month in months:
-        path ='/home/nbrown/Desktop/test/51157_hourly_%s_%s.csv' % (year,month)
+        path =wd+'/MONTREAL INTL A_51157_hourly_%s_%s.csv' % (year,month)
         print path
         frame = pd.read_csv(path, header=14, parse_dates=['Date/Time'], index_col=['Date/Time'])
         names = names.append(frame)
