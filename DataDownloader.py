@@ -7,9 +7,9 @@ To do:
 - Make better use of python OOP. e.g. Make a new class (object) for a list of files to download and
   call a method on it to download or filter.
 """
-import datetime, time, sys, os, csv
+import datetime, time, sys, os, csv, threading, urllib2
 from pprint import pprint
-import urllib2
+import Queue
 
 
 def checkVar(varNames,stationID,interval,year,verbose='off'):
@@ -33,11 +33,12 @@ def checkVar(varNames,stationID,interval,year,verbose='off'):
                 break
         temp1 = temp1 and temp2
     varsPresent = temp1
+    f.close()
 
     return varsPresent
- 
 
-def findStations(stationsDict,name,interval,tp,varNames=[],Pr=None,lat=None,lon=None,elev=None,verbose='off'):
+
+def findStations(wd,stationsDict,name,interval,tp,varNames=[],Pr=None,lat=None,lon=None,elev=None,verbose='off'):
     """
     Mandatory Filters:
     Filter1: Name contains a string (e.g. 'MONTREAL' or 'TORONTO'). Enter '' for all.
@@ -65,7 +66,6 @@ def findStations(stationsDict,name,interval,tp,varNames=[],Pr=None,lat=None,lon=
         tp[0],tp[1] = str(tp[0]),str(tp[1])
     else:
         raise ValueError('Error in parameter input to findStations(). Parameter tp must be a list with only 2 values.')
-    
     stations = []
 
     if interval=='hourly':
@@ -77,14 +77,17 @@ def findStations(stationsDict,name,interval,tp,varNames=[],Pr=None,lat=None,lon=
     else:
         raise ValueError('Invalid input to findStations: interval='+interval+'.\
             \n'+findStations.__doc__)
+    constraints = [name,interval,interv1,interv2,varNames,tp,Pr,lat,lon,elev]
 
     if verbose=='on': print 'Finding stations containing "'+name+'" at interval "'+interval+'" within time period '+\
     tp[0]+'-'+tp[1]+' containing variable(s) '+str(varNames)
 
     keys = stationsDict.keys()
     count = 0.
-    for key in keys:
-        update_progress(count/len(keys))
+
+    def search_job(count,key,keys,stationsDict,stations,constraints,queue): # name,interv1,interv2,tp,stations,interval)
+        name,interval,interv1,interv2,varNames = constraints[0],constraints[1],constraints[2],constraints[3],constraints[4]
+        tp,Pr,lat,lon,elev = constraints[5],constraints[6],constraints[7],constraints[8],constraints[9]
         if (name.upper() in key) and stationsDict[key][interv1]<=tp[1] and stationsDict[key][interv2]>=tp[0]:
             t1 = max(int(stationsDict[key][interv1]),int(tp[0])); t2 = min(int(stationsDict[key][interv2]),int(tp[1]))
             if varNames==[]:
@@ -93,15 +96,59 @@ def findStations(stationsDict,name,interval,tp,varNames=[],Pr=None,lat=None,lon=
                 stations.append([key,stationsDict[key][2],interval,t1,t2])
             else: print 'ERROR. This line should never be printed!'
         count = count + 1
+        update_progress(count/len(keys))
+        queue.put(key)
 
-    print 'Found '+str(len(stations))+' station(s):'; pprint(stations)
+    def search_parallel(keys):
+        start = time.time()
+        result = Queue.Queue()
+        threads = [threading.Thread(target=search_job, args = (count,key,keys,stationsDict,stations,constraints,result)) for key in keys]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+        print "findStations() Elapsed Time: %s" % (time.time() - start)
+        return result
+
+    def search_sequential():
+        '''
+        start = time.time()
+        result = Queue.Queue()
+        for key in keys:
+            search_job(count,key,keys,stationsDict,stations,constraints,result)
+        print "findStations() Elapsed Time: %s" % (time.time() - start)
+        return result
+        '''
+        count = 0.
+        for key in keys:
+            if (name.upper() in key) and stationsDict[key][interv1]<=tp[1] and stationsDict[key][interv2]>=tp[0]:
+                t1 = max(int(stationsDict[key][interv1]),int(tp[0])); t2 = min(int(stationsDict[key][interv2]),int(tp[1]))
+                if varNames==[]:
+                    stations.append([key,stationsDict[key][2],interval,t1,t2])
+                elif checkVar(varNames,stationsDict[key][2],interval,t1)==True:
+                    stations.append([key,stationsDict[key][2],interval,t1,t2])
+                else: print 'ERROR. This line should never be printed!'
+            count = count + 1
+            update_progress(count/len(keys))
+
+    #search_parallel(keys)
+    search_sequential()
+
+    print 'Found '+str(len(stations))+' station(s):'
+    pprint(stations) if len(stations)<=100 else pprint('>100 stations, so not displaying')
+
     ans = raw_input('Do you want to download data for all '+str(len(stations))+' stations? (y/n) \n')
     if ans=='n':
         sys.exit()
     elif ans=='y':
+        listFile = open(wd+'/'+'findStationsList_'+str(name)+'_'+interval+'_'+str(tp)+'_'+str(varNames)+'.txt',"w")
+        for item in stations:
+            listFile.write("%s\n" % item)
         return stations
     else:
         raise ValueError()
+
+
 
 
 def genDownloadList(stations, verbose='off'):
@@ -148,6 +195,7 @@ def multipleDownloads(wd,downloadList,skipExist=True,verbose='off'):
 
      To do:
      - Respect Env Can downloading guidelines. They might block downloads if there are too many.
+     - add threading.
     """
     size=0.0
     count=0.0
@@ -185,7 +233,6 @@ def downloader(wd,stationName,stationID,interval,day,month,year,verbose='off'):
     If monthly data is desired, then neither day, month nor year are required.
 
     To do:
-    - Check in station inventory file if the requested file exists at the desired interval (hourly, daily, monthly) and time period.
     - Better exception handling
     """
     day,month,year = str(day),str(month),str(year)
@@ -213,6 +260,7 @@ def mkFilename(interval, stationName, stationID, year, month):
         filename = stationName+'_'+stationID+'_daily_'+year
     elif interval=='monthly':
         filename = stationName+'_'+stationID+'_monthly'
+    filename = filename.replace('/','')
     return filename
 
 
