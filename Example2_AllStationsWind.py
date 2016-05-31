@@ -68,6 +68,6 @@ def station_plots(data_dir, out_dir):
     wind = ts[str(syear)+'-'+str(smonth)+'-01':str(eyear)+'-'+str(emonth)+'-01']
     ax1 = wind.plot(color='#3366ff', kind='line', linewidth=1.0, figsize=(11,7))
     ax2 = wind.rolling(window=48,center=True).mean().plot(color='0.35')
-    savefig(out_dir+'/'+name[0]+'_'+name[1]+'_'+name[2]+'.pdf', bbox_inches='tight')
+    plt.savefig(out_dir+'/'+name[0]+'_'+name[1]+'_'+name[2]+'.pdf', bbox_inches='tight')
 
 station_plots('/home/nbrown/Desktop/test/ALERT','/home/nbrown/Desktop/plots')
