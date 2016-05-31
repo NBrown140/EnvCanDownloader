@@ -24,7 +24,7 @@ stationsDict = dd.genStationsDict(wd)
 
 # Find all stations that contain 'montreal' in their name, have hourly data and have data somewhere
 # between 1970 and 2016.
-stations = dd.findStations(stationsDict,name='MONTREAL INTL A',interval='hourly',tp=['1970','2016'],verbose='on')
+stations = dd.findStations(wd,stationsDict,name='MONTREAL INTL A',interval='hourly',tp=['1970','2016'],verbose='on')
 
 # Download all desired files
 dd.multipleDownloads(wd,dd.genDownloadList(stations))
