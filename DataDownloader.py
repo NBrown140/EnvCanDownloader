@@ -10,6 +10,7 @@ To do:
 import datetime, time, sys, os, csv, threading, urllib2
 from pprint import pprint
 import Queue
+import math as m
 
 
 def checkVar(varNames,stationID,interval,year,verbose='off'):
@@ -59,8 +60,9 @@ def findStations(wd,stationsDict,name,interval,tp,varNames=[],Pr=None,lat=None,l
     name will always be converted to all uppercase, because stations name in the dict are all uppercase.
 
     To do:
-    - Add the code for Province, lat, lon and elevation constraints
-    - Optimize for speed, then numba, then parallelize.
+    - Add the code for ClimateId, Province, lat, lon and elevation constraints
+    - Revise the checkVar() algorithm. It uses only the 1st year in range at the 1st month and day. We may miss some stations
+      for which data starts later in the year. (I think?, maybe the right variable names are there even without data)
     """
     if len(tp)==2:
         tp[0],tp[1] = str(tp[0]),str(tp[1])
@@ -77,62 +79,55 @@ def findStations(wd,stationsDict,name,interval,tp,varNames=[],Pr=None,lat=None,l
     else:
         raise ValueError('Invalid input to findStations: interval='+interval+'.\
             \n'+findStations.__doc__)
-    constraints = [name,interval,interv1,interv2,varNames,tp,Pr,lat,lon,elev]
+    #constraints = [name,interval,interv1,interv2,varNames,tp,Pr,lat,lon,elev]
 
     if verbose=='on': print 'Finding stations containing "'+name+'" at interval "'+interval+'" within time period '+\
     tp[0]+'-'+tp[1]+' containing variable(s) '+str(varNames)
 
     keys = stationsDict.keys()
     count = 0.
-
-    def search_job(count,key,keys,stationsDict,stations,constraints,queue): # name,interv1,interv2,tp,stations,interval)
-        name,interval,interv1,interv2,varNames = constraints[0],constraints[1],constraints[2],constraints[3],constraints[4]
-        tp,Pr,lat,lon,elev = constraints[5],constraints[6],constraints[7],constraints[8],constraints[9]
+    start = time.time()
+    for key in keys:
         if (name.upper() in key) and stationsDict[key][interv1]<=tp[1] and stationsDict[key][interv2]>=tp[0]:
             t1 = max(int(stationsDict[key][interv1]),int(tp[0])); t2 = min(int(stationsDict[key][interv2]),int(tp[1]))
-            if varNames==[]:
-                stations.append([key,stationsDict[key][2],interval,t1,t2])
-            elif checkVar(varNames,stationsDict[key][2],interval,t1)==True:
-                stations.append([key,stationsDict[key][2],interval,t1,t2])
-            else: print 'ERROR. This line should never be printed!'
+            stations.append([key,stationsDict[key][2],interval,t1,t2])
         count = count + 1
         update_progress(count/len(keys))
-        queue.put(key)
+    count = 0.
+    for station in stations:
+        if varNames==[]:
+            pass
+        elif checkVar(varNames,station[1],station[2],station[3])==False:
+            stations.remove(station)
+        count = count + 1
+        update_progress(count/len(stations))
+    print "findStations() Elapsed Time: %s" % (time.time() - start)
 
-    def search_parallel(keys):
-        start = time.time()
-        result = Queue.Queue()
-        threads = [threading.Thread(target=search_job, args = (count,key,keys,stationsDict,stations,constraints,result)) for key in keys]
-        for t in threads:
-            t.start()
-        for t in threads:
-            t.join()
-        print "findStations() Elapsed Time: %s" % (time.time() - start)
-        return result
+# # Attempts to parallelize search
+#     def searchVarNames(count,varNames,station,stations,queue):
+#         key,stationID,interval,t1,t2 = station[0],station[1],station[2],station[3],station[4]
+#         if varNames==[]:
+#             pass
+#         elif checkVar(varNames,stationID,interval,t1)==False:
+#             stations.remove([key,stationsDict[key][2],interval,t1,t2])
+#         count = count + 1
+#         update_progress(count/len(stations))
+#         queue.put(station)
 
-    def search_sequential():
-        '''
-        start = time.time()
-        result = Queue.Queue()
-        for key in keys:
-            search_job(count,key,keys,stationsDict,stations,constraints,result)
-        print "findStations() Elapsed Time: %s" % (time.time() - start)
-        return result
-        '''
-        count = 0.
-        for key in keys:
-            if (name.upper() in key) and stationsDict[key][interv1]<=tp[1] and stationsDict[key][interv2]>=tp[0]:
-                t1 = max(int(stationsDict[key][interv1]),int(tp[0])); t2 = min(int(stationsDict[key][interv2]),int(tp[1]))
-                if varNames==[]:
-                    stations.append([key,stationsDict[key][2],interval,t1,t2])
-                elif checkVar(varNames,stationsDict[key][2],interval,t1)==True:
-                    stations.append([key,stationsDict[key][2],interval,t1,t2])
-                else: print 'ERROR. This line should never be printed!'
-            count = count + 1
-            update_progress(count/len(keys))
+#     def search_parallel(stations):
+#         start = time.time()
+#         result = Queue.Queue()
+#         count = 0.
+#         threads = [threading.Thread(target=searchVarNames, args = (count,varNames,station,stations,result)) for station in stations]
+#         for t in threads:
+#             t.start()
+#         for t in threads:
+#             t.join()
+#         print "findStations() Elapsed Time: %s" % (time.time() - start)
+#         return result
 
-    #search_parallel(keys)
-    search_sequential()
+#     search_parallel(stations)
+
 
     print 'Found '+str(len(stations))+' station(s):'
     pprint(stations) if len(stations)<=100 else pprint('>100 stations, so not displaying')
@@ -141,9 +136,9 @@ def findStations(wd,stationsDict,name,interval,tp,varNames=[],Pr=None,lat=None,l
     if ans=='n':
         sys.exit()
     elif ans=='y':
-        listFile = open(wd+'/'+'findStationsList_'+str(name)+'_'+interval+'_'+str(tp)+'_'+str(varNames)+'.txt',"w")
-        for item in stations:
-            listFile.write("%s\n" % item)
+        with open(wd+'findStationsList_"'+str(name)+'".csv', "wb") as f:
+            writer = csv.writer(f)
+            writer.writerows(stations)
         return stations
     else:
         raise ValueError()
@@ -161,7 +156,6 @@ def genDownloadList(stations, verbose='off'):
     downloadList = []
 
     for station in stations:
-        print station
         if station[2]=='monthly':
             downloadList.append([station[0],station[1],station[2],'1','1','1'])
         elif station[2]=='daily':
@@ -176,7 +170,8 @@ def genDownloadList(stations, verbose='off'):
                         downloadList.append([station[0],station[1],station[2],'1',month,year])
         else:
             raise ValueError('Invalid input to genDownloadList: interval')
-    if verbose=='on': print 'Found '+str(len(downloadList))+' files to download:'; pprint(downloadList)
+    if verbose=='on': print 'Found '+str(len(downloadList))+' files to download:'
+    pprint(downloadList) if len(downloadList)<=100 else pprint('>100 stations, so not displaying')
 
     return downloadList
 
@@ -197,25 +192,105 @@ def multipleDownloads(wd,downloadList,skipExist=True,verbose='off'):
      - Respect Env Can downloading guidelines. They might block downloads if there are too many.
      - add threading.
     """
-    size=0.0
-    count=0.0
-    tot=len(downloadList)
+    # size=0.0
+    # count=0.0
+    # tot=len(downloadList)
+    # for i in downloadList:
+    #     if not os.path.exists(wd+'/'+i[0]):
+    #         os.makedirs(wd+'/'+i[0])
+    #     filename = mkFilename(i[2],i[0],i[1],i[5],i[4])
+    #     if skipExist:
+    #         if os.path.exists(wd+'/'+i[0]+'/'+filename+'.csv'):
+    #             pass
+    #         else:
+    #             downloader(wd+'/'+i[0],i[0],i[1],i[2],i[3],i[4],i[5],verbose)
+    #     else:
+    #         downloader(wd+'/'+i[0],i[0],i[1],i[2],i[3],i[4],i[5],verbose)
+    #     count=count+1.0
+    #     update_progress(count/tot)
+    #     size=size+os.path.getsize(wd+'/'+i[0]+'/'+filename+'.csv')
+    #     sys.stdout.write(str(round(size,3)/1E6)+' MB')
+    #     sys.stdout.flush()
+
+    #Above code works as is. Under is experimental parallel.
+    #################################################################################
+
+    os.chdir(wd)
+
+    # Make list of URLs to download and their respective filenames. i.e. [[url1,filename1],[url2,filename2],...]
+    urls_to_download = []
     for i in downloadList:
-        if not os.path.exists(wd+'/'+i[0]):
-            os.makedirs(wd+'/'+i[0])
+        url = urlBuilder(i[1],i[2],i[3],i[4],i[5])
         filename = mkFilename(i[2],i[0],i[1],i[5],i[4])
-        if skipExist:
-            if os.path.exists(wd+'/'+i[0]+'/'+filename+'.csv'):
+        urls_to_download.append([url,filename])
+
+
+    def download_url(url1,skipExist,queue):
+        url,filename = url1[0],url1[1]
+        name = filename.split('_')[0]
+        try:
+            if not os.path.exists(wd+name):
+                os.makedirs(wd+name)
+        except OSError, e:
+            if e.errno != 17:
                 pass
-            else:
-                downloader(wd+'/'+i[0],i[0],i[1],i[2],i[3],i[4],i[5],verbose)
+        data = urllib2.urlopen(url).read()
+        fileSave = open(wd+name+'/'+filename+'.csv',"w")
+        fileSave.write(data)
+        fileSave.close()
+        #size=size+os.path.getsize(wd+'/'+name+'/'+filename+'.csv')
+        #sys.stdout.write(str(round(size,3)/1E6)+' MB')
+        #sys.stdout.flush()
+        queue.put(data)
+
+        # if skipExist:
+        #     if os.path.exists(wd+'/'+name+'/'+filename+'.csv'):
+        #         pass
+        #     else:
+        #         data = urllib2.urlopen(url).read()
+        #         fileSave = open(wd+'/'+name+'/'+filename+'.csv',"w")
+        #         fileSave.write(data)
+        #         fileSave.close()
+        #         count=count+1.0
+        #         update_progress(count/tot)
+        #         size=size+os.path.getsize(wd+'/'+name+'/'+filename+'.csv')
+        #         sys.stdout.write(str(round(size,3)/1E6)+' MB')
+        #         sys.stdout.flush()
+        #         queue.put(data)
+        # else:
+        #     data = urllib2.urlopen(url).read()
+        #     fileSave = open(wd+'/'+name+'/'+filename+'.csv',"w")
+        #     fileSave.write(data)
+        #     fileSave.close()
+        #     count=count+1.0
+        #     update_progress(count/tot)
+        #     size=size+os.path.getsize(wd+'/'+name+'/'+filename+'.csv')
+        #     sys.stdout.write(str(round(size,3)/1E6)+' MB')
+        #     sys.stdout.flush()
+        #     queue.put(data)
+
+
+    def fetch_parallel(urls_to_download):
+        count,size = 0.,0.
+        start = time.time()
+        result = Queue.Queue()
+        threads = [threading.Thread(target=download_url, args = (url,skipExist,result)) for url in urls_to_download]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+        #print "Elapsed Time: %s" % (time.time() - start)
+        return result
+
+    chunck = 200
+    iterations = int(m.ceil(len(urls_to_download)/float(chunck)))
+    for i in range(0,iterations):
+        if i==((iterations-1)):
+            fetch_parallel(urls_to_download[i*chunck:len(urls_to_download)])
         else:
-            downloader(wd+'/'+i[0],i[0],i[1],i[2],i[3],i[4],i[5],verbose)
-        count=count+1.0
-        update_progress(count/tot)
-        size=size+os.path.getsize(wd+'/'+i[0]+'/'+filename+'.csv')
-        sys.stdout.write(str(round(size,3)/1E6)+' MB')
-        sys.stdout.flush()
+            fetch_parallel(urls_to_download[i*chunck:i*chunck+chunck])
+        update_progress(float(i)/iterations)
+
 
 
 def downloader(wd,stationName,stationID,interval,day,month,year,verbose='off'):
@@ -294,8 +369,7 @@ def urlBuilder(stationID,interval,day,month,year,verbose='off'):
         raise ValueError('Invalid input to urlBuilder: interval='+interval+'.\
             \n'+urlBuilder.__doc__)
 
-    url = 'http://climate.weather.gc.ca/climateData/bulkdata_e.html?format=csv&stationID='+stationID+'&Year='+year+'&Month='+month+'&Day='+day+'&timeframe='+tf+'&submit= Download+Data'
-
+    url = 'http://climate.weather.gc.ca/climate_data/bulk_data_e.html?format=csv&stationID='+stationID+'&Year='+year+'&Month='+month+'&Day='+day+'&timeframe='+tf+'&submit= Download+Data'
     if verbose=='on': print "Built URL: ",url,'\n'
         
     return url
@@ -317,12 +391,14 @@ def genStationsDict(wd):
     os.chdir(wd)
     print 'Working directory set to: '+wd
 
-    print 'Downloading StationInventoryEN.csv to '+wd
-    f = urllib2.urlopen('ftp://client_climate@ftp.tor.ec.gc.ca/Pub/Get_More_Data_Plus_de_donnees/Station%20Inventory%20EN.csv')
-    data = open("StationInventoryEN.csv","w")
-    data.write(f.read())
-    data.close()
-    print 'Done Downloading StationInventoryEN.csv'
+    try:
+        print 'Downloading StationInventoryEN.csv to '+wd
+        f = urllib2.urlopen('ftp://client_climate@ftp.tor.ec.gc.ca/Pub/Get_More_Data_Plus_de_donnees/Station%20Inventory%20EN.csv')
+        data = open("StationInventoryEN.csv","w")
+        data.write(f.read())
+        data.close()
+        print 'Done Downloading StationInventoryEN.csv'
+    except(URLError): print 'Error getting stationInventoryEN.csv from servers, using previous download if availble.'
 
     with open('StationInventoryEN.csv') as f:
         reader = csv.reader(f)
