@@ -375,7 +375,7 @@ def urlBuilder(stationID,interval,day,month,year,verbose='off'):
     return url
 
 
-def genStationsDict(wd):
+def genStationsDict(wd,downloadNew=True,ver=True):
     """
     Downloads the daily-updated .csv file that contains all station IDs (and more) to the working directory.
     
@@ -389,16 +389,17 @@ def genStationsDict(wd):
     - Add ability to gen dict without saving the inventory file to disk.
     """
     os.chdir(wd)
-    print 'Working directory set to: '+wd
-
-    try:
-        print 'Downloading StationInventoryEN.csv to '+wd
-        f = urllib2.urlopen('ftp://client_climate@ftp.tor.ec.gc.ca/Pub/Get_More_Data_Plus_de_donnees/Station%20Inventory%20EN.csv')
-        data = open("StationInventoryEN.csv","w")
-        data.write(f.read())
-        data.close()
-        print 'Done Downloading StationInventoryEN.csv'
-    except(URLError): print 'Error getting stationInventoryEN.csv from servers, using previous download if availble.'
+    if ver==True: print 'Working directory set to: '+wd
+    
+    if downloadNew==True:
+        try:
+            print 'Downloading StationInventoryEN.csv to '+wd
+            f = urllib2.urlopen('ftp://client_climate@ftp.tor.ec.gc.ca/Pub/Get_More_Data_Plus_de_donnees/Station%20Inventory%20EN.csv')
+            data = open("StationInventoryEN.csv","w")
+            data.write(f.read())
+            data.close()
+            print 'Done Downloading StationInventoryEN.csv'
+        except(URLError): print 'Error getting stationInventoryEN.csv from servers, using previous download if availble.'
 
     with open('StationInventoryEN.csv') as f:
         reader = csv.reader(f)
